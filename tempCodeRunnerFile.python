@@ -1,0 +1,132 @@
+import random
+import itertools
+import json
+import pickle
+
+# Dictionary of Greek letters with their corresponding points
+LETTER_POINTS = {
+    'Α': 1, 'Β': 8, 'Γ': 4, 'Δ': 4, 'Ε': 1, 'Ζ': 8, 'Η': 1, 'Θ': 8, 
+    'Ι': 1, 'Κ': 2, 'Λ': 3, 'Μ': 3, 'Ν': 1, 'Ξ': 10, 'Ο': 1, 'Π': 3, 
+    'Ρ': 2, 'Σ': 1, 'Τ': 1, 'Υ': 2, 'Φ': 8, 'Χ': 8, 'Ψ': 10, 'Ω': 3
+}
+
+# Class defining the bag of letters
+class SakClass:
+    def __init__(self):
+        self.letters = list(LETTER_POINTS.keys()) * 2  # Initial bag with each letter twice
+        random.shuffle(self.letters)
+    
+    def draw_letters(self, num):
+        drawn = random.sample(self.letters, num)
+        for letter in drawn:
+            self.letters.remove(letter)
+        return drawn
+
+    def return_letters(self, letters):
+        self.letters.extend(letters)
+        random.shuffle(self.letters)
+
+# Basic Player class
+class Player:
+    def __init__(self, name):
+        self.name = name
+        self.letters = []
+        self.score = 0
+
+    def add_letters(self, letters):
+        self.letters.extend(letters)
+
+    def remove_letters(self, letters):
+        for letter in letters:
+            self.letters.remove(letter)
+
+    def calculate_score(self, word):
+        return sum(LETTER_POINTS[letter] for letter in word)
+
+# Human player class
+class Human(Player):
+    def __init__(self, name):
+        super().__init__(name)
+
+    def play_word(self, word):
+        if all(letter in self.letters for letter in word):
+            self.remove_letters(word)
+            score = self.calculate_score(word)
+            self.score += score
+            return word, score
+        else:
+            return None, 0
+
+# Computer player class
+class Computer(Player):
+    def __init__(self, name, dictionary):
+        super().__init__(name)
+        self.dictionary = dictionary
+
+    def find_best_word(self):
+        best_word = ""
+        best_score = 0
+        for L in range(1, len(self.letters) + 1):
+            for permutation in itertools.permutations(self.letters, L):
+                word = ''.join(permutation)
+                if word in self.dictionary:
+                    score = self.calculate_score(word)
+                    if score > best_score:
+                        best_word = word
+                        best_score = score
+        return best_word, best_score
+
+    def play_word(self):
+        word, score = self.find_best_word()
+        if word:
+            self.remove_letters(word)
+            self.score += score
+            return word, score
+        else:
+            return None, 0
+
+# Game class managing the game flow
+class Game:
+    def __init__(self, human_name, dictionary_path):
+        self.sak = SakClass()
+        self.human = Human(human_name)
+        with open(dictionary_path, 'r', encoding='utf-8') as file:
+            self.dictionary = {line.strip() for line in file}
+        self.computer = Computer("Computer", self.dictionary)
+
+    def start_game(self):
+        self.human.add_letters(self.sak.draw_letters(7))
+        self.computer.add_letters(self.sak.draw_letters(7))
+        while True:
+            print(f"{self.human.name}'s turn")
+            print(f"Your letters: {self.human.letters}")
+            word = input("Enter a word: ").strip().upper()
+            word, score = self.human.play_word(word)
+            if word:
+                print(f"You played {word} for {score} points")
+                self.human.add_letters(self.sak.draw_letters(len(word)))
+            else:
+                print("Invalid word. Try again.")
+
+            print(f"Computer's turn")
+            word, score = self.computer.play_word()
+            if word:
+                print(f"Computer played {word} for {score} points")
+                self.computer.add_letters(self.sak.draw_letters(len(word)))
+            else:
+                print("Computer cannot play a word")
+
+            print(f"Scores: {self.human.name} {self.human.score}, Computer {self.computer.score}")
+
+            if len(self.sak.letters) < 7:
+                break
+
+        print("Game over!")
+        if self.human.score > self.computer.score:
+            print(f"{self.human.name} wins!")
+        else:
+            print("Computer wins!")
+
+if __name__ == "__main__":
+    game = Game("Player1", 'greek7.txt')
+    game.start_game()
